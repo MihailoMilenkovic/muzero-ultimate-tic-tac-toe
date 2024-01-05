@@ -1,4 +1,120 @@
 import numpy as np
+from .abstract_game import AbstractGame
+
+
+class Game(AbstractGame):
+    """
+    Game wrapper.
+    """
+
+    def __init__(self, seed=None):
+        self.env = UltimateTicTacToe()
+
+    def step(self, action):
+        """
+        Apply action to the game.
+
+        Args:
+            action : action of the action_space to take.
+
+        Returns:
+            The new observation, the reward and a boolean if the game has ended.
+        """
+        observation, reward, done = self.env.step(action)
+        return observation, reward * 20, done
+
+    def to_play(self):
+        """
+        Return the current player.
+
+        Returns:
+            The current player, it should be an element of the players list in the config.
+        """
+        return self.env.to_play()
+
+    def legal_actions(self):
+        """
+        Should return the legal actions at each turn, if it is not available, it can return
+        the whole action space. At each turn, the game have to be able to handle one of returned actions.
+
+        For complex game where calculating legal moves is too long, the idea is to define the legal actions
+        equal to the action space but to return a negative reward if the action is illegal.
+
+        Returns:
+            An array of integers, subset of the action space.
+        """
+        return self.env.legal_actions()
+
+    def reset(self):
+        """
+        Reset the game for a new game.
+
+        Returns:
+            Initial observation of the game.
+        """
+        return self.env.reset()
+
+    def render(self):
+        """
+        Display the game observation.
+        """
+        self.env.render()
+        input("Press enter to take a step ")
+
+    def human_to_action(self):
+        """
+        For multiplayer games, ask the user for a legal action
+        and return the corresponding action number.
+
+        Returns:
+            An integer from the action space.
+        """
+        while True:
+            try:
+                player_in = input(
+                    f"Enter 4 coordinates split by spaces - big row, big col, small row, small col - all in (0, 1, 2) for player {self.to_play()}: "
+                )
+
+                player_in = [int(x) for x in player_in.split(" ")]
+                big_row = player_in[0]
+                big_col = player_in[1]
+                small_row = player_in[2]
+                small_col = player_in[3]
+                choice = big_row * 27 + big_col * 9 + small_row * 3 + small_col
+                if choice in self.legal_actions() and all(
+                    [0 <= x <= 2 for x in [big_row, big_col, small_row, small_col]]
+                ):
+                    break
+            except:
+                pass
+            print("Wrong input, try again")
+        return choice
+
+    def expert_agent(self):
+        """
+        Hard coded agent that MuZero faces to assess his progress in multiplayer games.
+        It doesn't influence training
+
+        Returns:
+            Action as an integer to take in the current game state
+        """
+        return self.env.expert_action()
+
+    def action_to_string(self, action_number):
+        """
+        Convert an action number to a string representing the action.
+
+        Args:
+            action_number: an integer from the action space.
+
+        Returns:
+            String representing the action.
+        """
+        big_row = action_number // 27  # % 3 not needed
+        big_col = (action_number // 9) % 3
+        small_row = (action_number // 3) % 3
+        small_col = action_number % 3
+        return f"big board:({big_row},{big_col}) small board:({small_row},{small_col})"
 
 
 class UltimateTicTacToe:
