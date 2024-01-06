@@ -1,3 +1,5 @@
+from typing import List
+
 import math
 import time
 
@@ -141,6 +143,7 @@ class SelfPlay:
 
                 # Choose the action
                 if opponent == "self" or muzero_player == self.game.to_play():
+                    # TODO: add MCTS parallelism here
                     root, mcts_info = MCTS(self.config).run(
                         self.model,
                         stacked_observations,
@@ -474,6 +477,82 @@ class Node:
         frac = exploration_fraction
         for a, n in zip(actions, noise):
             self.children[a].prior = self.children[a].prior * (1 - frac) + n * frac
+
+
+def merge_mcts_trees(root_nodes: List[Node]):
+    """
+    Combine two MCTS trees to obtain joint tree
+    Used for tree parallelism approach after finishing exploring independent MCTS trees with same root states
+    """
+    assert len(root_nodes) >= 1
+    new_node = Node(prior=root_nodes[0].prior)
+    assert all(x.prior == new_node.prior for x in root_nodes)
+    new_node.visit_count = sum(x.visit_count for x in root_nodes)
+    new_node.to_play = root_nodes[0].to_play
+    assert all(x.to_play == new_node.to_play for x in root_nodes)
+    new_node.value_sum = sum(x.value_sum for x in root_nodes)
+    new_node_actions = {a for x in root_nodes for a in x.children.keys}
+    for a in new_node_actions:
+        new_node.children[a] = merge_mcts_trees(
+            [x.children[a] for x in root_nodes if a in x.children.keys]
+        )
+    new_node.value_sum = sum(x.value_sum for x in root_nodes)
+    new_node.hidden_state = None
+    # TODO: check if this is how the reward should be calculated
+    # average reward seems to make sense, but maybe there's a better way to calculate it?
+    new_node.reward = 1.0 * sum(x.reward for x in root_nodes) / len(root_nodes)
+    return new_node
+
+
+class TreeParallelMCTS(MCTS):
+    def __init__(self, config):
+        super().__init__(config)
+        self.num_trees = 1  # TODO: set to MPI.COMM_WORLD
+        self.subtrees = [MCTS(config) for _ in range(self.num_trees)]
+
+    def run(
+        self,
+        model,
+        observation,
+        legal_actions,
+        to_play,
+        add_exploration_noise,
+        override_root_with=None,
+    ):
+        roots = []
+        extra_infos = []
+        # TODO: run this and other functions on process 0 and run 1 tree for each MPI process
+        for _ in range(self.num_trees):
+            root, extra_info = self.subtrees.run(
+                model,
+                observation,
+                legal_actions,
+                to_play,
+                add_exploration_noise,
+                override_root_with,
+            )
+            roots.append(root)
+            extra_infos.append(extra_info)
+        """
+            # TODO: use MPI gather for roots and extra infos
+            serizlized_root=pickle.dumps(root)
+            sizes=comm.gather(sys.getsizeof(serialized_root),root=0)
+            roots=comm.gatherv(serialized_root,sizes,root=0)
+            roots=[pickle.loads(r) for r in roots]
+            serizlized_infos=pickle.dumps(root)
+            sizes=comm.gather(sys.getsizeof(serizlized_infos),root=0)
+            extra_infos=comm.gatherv(serizlized_infos,sizes,root=0)
+            extra_infos=[pickle.loads(i) for i in extra_infos]
+        if comm.Get_rank==0: 
+        """
+        root = merge_mcts_trees(roots)
+        extra_info = {
+            "max_tree_depth": max(info["max_tree_depth"] for info in extra_infos),
+            # TODO: check if the predicted value actually matters...
+            # currently just storing the first one
+            "root_predicted_value": extra_infos[0]["root_predicted_value"],
+        }
+        return root, extra_info
 
 
 class GameHistory:
