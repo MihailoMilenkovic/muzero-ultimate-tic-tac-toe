@@ -1,3 +1,4 @@
+from typing import Tuple
 import pathlib
 import datetime
 import numpy as np
@@ -29,7 +30,7 @@ class MuZeroConfig:
         self.num_workers = 1  # Number of simultaneous threads/workers self-playing to feed the replay buffer
         self.selfplay_on_gpu = False
         self.max_moves = 81  # Maximum number of moves if game is not finished before
-        self.num_simulations = 25  # Number of future moves self-simulated
+        self.num_simulations = 5  # Number of future moves self-simulated
         self.discount = 1  # Chronological discount of the reward
         self.temperature_threshold = None  # Number of moves before dropping the temperature given by visit_softmax_temperature_fn to 0 (ie selecting the best action). If None, visit_softmax_temperature_fn is used every time
 
@@ -190,8 +191,8 @@ class Game(AbstractGame):
                 player_in = input(
                     f"Enter 4 coordinates split by spaces - big row, big col, small row, small col - all in (0, 1, 2) for player {self.to_play()}: "
                 )
-
-                player_in = [int(x) for x in player_in.split(" ")]
+                inputs = player_in.strip().split(" ")
+                player_in = [int(x) for x in inputs]
                 big_row = player_in[0]
                 big_col = player_in[1]
                 small_row = player_in[2]
@@ -259,7 +260,7 @@ class UltimateTicTacToe:
         self.small_boards[big_row, big_col, small_row, small_col] = self.player
         self.last_small = (small_row, small_col)
         self.last_big = (big_row, big_col)
-        small_win, small_filled = self.small_board_has_winner(big_row, big_col)
+        small_win, small_filled = self._small_board_has_winner(big_row, big_col)
         if small_win:
             self.big_board[big_row, big_col] = self.player
         if small_filled:
@@ -303,11 +304,11 @@ class UltimateTicTacToe:
             assert self.big_board[big_row, big_col] == 0
             small_row = (action // 3) % 3
             small_col = action % 3
-            if self.board[big_row, big_col, small_row, small_col] == 0:
+            if self.small_boards[big_row, big_col, small_row, small_col] == 0:
                 legal.append(action)
         return legal
 
-    def _regular_tictactoe_has_winner(self, board: np.array[int, int]):
+    def _regular_tictactoe_has_winner(self, board: np.ndarray):
         assert board.shape == (3, 3)
         other_player = self.player * -1
         for i in range(3):
@@ -322,12 +323,12 @@ class UltimateTicTacToe:
                 return True
 
         # Diagonal checks
-        if self.board[0, 0] == self.board[1, 1] == self.board[2, 2] and (
-            self.board[0, 0] == self.player or self.board[0, 0] == other_player
+        if board[0, 0] == board[1, 1] == board[2, 2] and (
+            board[0, 0] == self.player or board[0, 0] == other_player
         ):
             return True
-        if self.board[2, 0] == self.board[1, 1] == self.board[0, 2] == self.player and (
-            self.board[2, 0] == self.player or self.board[2, 0] == other_player
+        if board[2, 0] == board[1, 1] == board[0, 2] == self.player and (
+            board[2, 0] == self.player or board[2, 0] == other_player
         ):
             return True
 
@@ -350,15 +351,17 @@ class UltimateTicTacToe:
         # 2)check if the whole game is finished
         return self._regular_tictactoe_has_winner(self.big_board)
 
-    def _display_element(element):
-        if element == 1:
-            return "X"
-        elif element == -1:
-            return "O"
-        elif element == 0:
-            return "."
-        else:
-            assert False
+    def _display_element(self, element: int, coords: Tuple[int, int, int, int]):
+        el_to_char = {1: "X", -1: "O", 0: "."}
+        i, j, k, l = coords
+        if self.big_board[i, j] != 0:
+            assert self.big_board[i, j] in [-1, 1]
+            return el_to_char[self.big_board[i, j]]
+
+        if (i, j) == self.last_small and self.small_boards[i, j, k, l] == 0:
+            return "!"
+        assert element in el_to_char
+        return el_to_char[element]
 
     def render(self):
         # display current board
@@ -372,8 +375,11 @@ class UltimateTicTacToe:
                 for k in range(3):
                     print("|", end="")
                     for l in range(3):
+                        displayed = self._display_element(
+                            self.small_boards[i, k, j, l], (i, k, j, l)
+                        )
                         print(
-                            f" {self._display_element(self.small_boards[i, k, j, l])} ",
+                            f" {displayed} ",
                             end="|",
                         )
                     print(" ", end="")

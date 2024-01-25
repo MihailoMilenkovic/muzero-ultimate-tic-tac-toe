@@ -40,6 +40,7 @@ class MuZero:
     """
 
     def __init__(self, game_name, config=None, split_resources_in=1):
+        print("MUZERO INIT!!!!!!!!!!!!!!!!")
         # Load the game and the config from the module with the game name
         try:
             game_module = importlib.import_module("games." + game_name)
