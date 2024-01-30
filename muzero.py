@@ -39,12 +39,23 @@ class MuZero:
         >>> muzero.test(render=True)
     """
 
-    def __init__(self, game_name, config=None, split_resources_in=1):
+    def __init__(
+        self,
+        game_name,
+        config=None,
+        split_resources_in=1,
+        custom_options={"num_trees": 1, "time_limit": 3},
+    ):
         # Load the game and the config from the module with the game name
         try:
             game_module = importlib.import_module("games." + game_name)
             self.Game = game_module.Game
-            self.config = game_module.MuZeroConfig()
+            try:
+                # NOTE: adding more configurability for some games, doesn't work for all of them
+                self.config = game_module.MuZeroConfig(custom_options=custom_options)
+            except:
+                self.config = game_module.MuZeroConfig()
+
         except ModuleNotFoundError as err:
             print(
                 f'{game_name} is not a supported game name, try "cartpole" or refer to the documentation for adding a new game.'

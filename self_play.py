@@ -329,7 +329,22 @@ class MCTS:
         min_max_stats = MinMaxStats()
 
         max_tree_depth = 0
-        for _ in range(self.config.num_simulations):
+        start_time = time.time()
+        # NOTE: can either iterate over a fixed number of simulations or a fixed time limit
+        # most games only have a fixed number of iterations, adding time limit for more flexibility
+        num_iters = (
+            1000000000
+            if hasattr(self.config, "time_limit") and self.config.time_limit is not None
+            else self.config.num_simulations
+        )
+        for _ in range(num_iters):
+            if (
+                hasattr(self.config, "time_limit")
+                and self.config.time_limit is not None
+                and (time.time() - start_time > self.config.time_limit)
+            ):
+                break
+
             virtual_to_play = to_play
             node = root
             search_path = [node]

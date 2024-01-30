@@ -7,11 +7,14 @@ from .abstract_game import AbstractGame
 
 
 class MuZeroConfig:
-    def __init__(self):
+    def __init__(self, custom_options={"num_trees": 1, "time_limit": 5}):
         # NOTE: adding option for parallel MCTS here
         # num_trees > 1 runs an MPI process with multiple workers
         # workers create their own MCTS trees and parallel simulations
-        self.num_trees = 2
+        # the workers run for a specified time limit
+        self.num_trees = custom_options["num_trees"]
+        self.time_limit = custom_options["time_limit"]
+
         # fmt: off
         # More information is available here: https://github.com/werner-duvaud/muzero-general/wiki/Hyperparameter-Optimization
 
