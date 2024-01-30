@@ -14,6 +14,12 @@ def main():
         "--game_name", choices=["tictactoe", "ultimate_tictactoe"], required=True
     )
     ap.add_argument(
+        "--opponent",
+        choices=["self", "human"],
+        default="self",
+        help="Opponent to play against MuZero (human or self-play)",
+    )
+    ap.add_argument(
         "--num_trees",
         type=int,
         default=1,
@@ -31,21 +37,20 @@ def main():
 
     game_name = args.game_name
     print("CREATING MUZERO INSTANCE")
-    muzero = MuZero(game_name)
+    custom_options = {"num_trees": args.num_trees, "time_limit": args.time_limit}
+    print("CUSTOM_OPTIONS:", custom_options)
+    muzero = MuZero(game_name, custom_options=custom_options)
     print(f"INITIALIZED MUZERO FOR GAME {game_name}")
     mode = args.mode
     if mode == "train":
         print("TRAINING MODEL")
         muzero.train()
     elif mode == "test":
-        print("PLAYING AGAINST MULTITHREADED MODEL")
-        custom_options = {"num_trees": args.num_trees, "time_limit": args.time_limit}
-        print("CUSTOM_OPTIONS:", custom_options)
+        print("PLAYING AGAINST MODEL")
         muzero.test(
-            render=True,
-            opponent="human",
+            render=True if args.opponent == "human" else False,
+            opponent=args.opponent,
             muzero_player=0,
-            custom_options=custom_options,
         )
     else:
         print("Invalid mode. Use '--mode train' or '--mode test'.")

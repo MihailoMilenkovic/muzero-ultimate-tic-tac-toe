@@ -38,7 +38,7 @@ if __name__ == "__main__":
     if rank == 0:
         print("ROOTS:", root_nodes)
         # print("MERGE INFOS:", merge_mcts_info)
-        merged_root = merge_mcts_trees(root_nodes)
+        merged_root = merge_mcts_trees(root_nodes=root_nodes, config=config)
         # for a in merged_root.children.keys():
         #     print("ACTION:", a, "VISITS:", merged_root.children[a].visit_count)
         pickle_data_file = "/tmp/output.pkl"

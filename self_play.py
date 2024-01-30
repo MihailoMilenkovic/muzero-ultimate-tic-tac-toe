@@ -160,6 +160,8 @@ class SelfPlay:
                             self.game.to_play(),
                             True,
                         )
+                    # save data to see performance of different hyperparameters
+                    save_profiling_data(config=self.config, root_node=root)
                     action = self.select_action(
                         root,
                         temperature
@@ -504,7 +506,38 @@ class Node:
             self.children[a].prior = self.children[a].prior * (1 - frac) + n * frac
 
 
-def merge_mcts_trees(root_nodes: List[Node]):
+def save_profiling_data(config, root_node):
+    import os
+    import json
+
+    os.makedirs(config.profiling_data_path, exist_ok=True)
+    json_file = os.path.join(config.profiling_data_path, "profiling_data.json")
+
+    # Check if the JSON file exists
+    if os.path.exists(json_file):
+        # If the file exists, load its contents
+        with open(json_file, "r") as file:
+            data = json.load(file)
+        print("Existing JSON file loaded successfully.")
+    else:
+        # If the file doesn't exist, create an empty data structure
+        data = []
+        print("New JSON file created.")
+
+    new_data = {
+        "visit_count": root_node.visit_count,
+        "num_trees": config.num_trees,
+        "time_limit": config.time_limit,
+    }
+
+    data.append(new_data)
+
+    # Write the updated data back to the JSON file
+    with open(json_file, "w") as file:
+        json.dump(data, file, indent=4)
+
+
+def merge_mcts_trees(root_nodes: List[Node], config):
     """
     Combine two MCTS trees to obtain joint tree
     Used for tree parallelism approach after finishing exploring independent MCTS trees with same root states

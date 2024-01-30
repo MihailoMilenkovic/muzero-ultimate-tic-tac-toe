@@ -92,3 +92,4 @@ myenv/
 .mypy_cache/
 .dmypy.json
 dmypy.json
+profiling_data.json
