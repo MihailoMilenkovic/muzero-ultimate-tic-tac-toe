@@ -8,6 +8,10 @@ from .abstract_game import AbstractGame
 
 class MuZeroConfig:
     def __init__(self):
+        # NOTE: adding option for parallel MCTS here
+        # num_trees > 1 runs an MPI process with multiple workers
+        # workers create their own MCTS trees and parallel simulations
+        self.num_trees = 2
         # fmt: off
         # More information is available here: https://github.com/werner-duvaud/muzero-general/wiki/Hyperparameter-Optimization
 

@@ -144,13 +144,22 @@ class SelfPlay:
                 # Choose the action
                 if opponent == "self" or muzero_player == self.game.to_play():
                     # TODO: add MCTS parallelism here
-                    root, mcts_info = MCTS(self.config).run(
-                        self.model,
-                        stacked_observations,
-                        self.game.legal_actions(),
-                        self.game.to_play(),
-                        True,
-                    )
+                    if self.config.num_trees == 1:
+                        root, mcts_info = MCTS(self.config).run(
+                            self.model,
+                            stacked_observations,
+                            self.game.legal_actions(),
+                            self.game.to_play(),
+                            True,
+                        )
+                    else:
+                        root, mcts_info = TreeParallelMCTS(self.config).run(
+                            self.model,
+                            stacked_observations,
+                            self.game.legal_actions(),
+                            self.game.to_play(),
+                            True,
+                        )
                     action = self.select_action(
                         root,
                         temperature
@@ -505,10 +514,10 @@ def merge_mcts_trees(root_nodes: List[Node]):
 
 
 class TreeParallelMCTS(MCTS):
-    def __init__(self, config):
+    def __init__(self, config, num_trees=1):
         super().__init__(config)
-        self.num_trees = 1  # TODO: set to MPI.COMM_WORLD
-        self.subtrees = [MCTS(config) for _ in range(self.num_trees)]
+        self.num_trees = num_trees
+        self.config = config
 
     def run(
         self,
@@ -521,18 +530,43 @@ class TreeParallelMCTS(MCTS):
     ):
         roots = []
         extra_infos = []
-        # TODO: run this and other functions on process 0 and run 1 tree for each MPI process
-        for _ in range(self.num_trees):
-            root, extra_info = self.subtrees.run(
-                model,
-                observation,
-                legal_actions,
-                to_play,
-                add_exploration_noise,
-                override_root_with,
-            )
-            roots.append(root)
-            extra_infos.append(extra_info)
+        from mpi4py import MPI
+
+        comm = MPI.COMM_WORLD
+        size = comm.Get_size()
+        assert size == 1
+
+        intercomm = MPI.COMM_SELF.Spawn(
+            command="python", args=["mpi_worker.py"], maxprocs=self.config.num_trees
+        )
+        args = [
+            model,
+            observation,
+            legal_actions,
+            to_play,
+            add_exploration_noise,
+            override_root_with,
+        ]
+        root = MCTS(self.config)
+        # each node receives the broadcasted value
+        intercomm.broadcast(args, root=MPI.ROOT)
+        # each node receives the broadcasted value
+        intercomm.broadcast(root, root=MPI.ROOT)
+        # each node does root.run(*args)
+        # root, extra_info = root.run(
+        #     model,
+        #     observation,
+        #     legal_actions,
+        #     to_play,
+        #     add_exploration_noise,
+        #     override_root_with,
+        # )
+        #
+        roots = [None for _ in range(self.num_trees)]
+        extra_infos = [None for _ in range(self.num_trees)]
+        # each node sends the root after calculations
+        intercomm.gather(roots, root=MPI.ROOT)
+        intercomm.gather(extra_infos, root=MPI.ROOT)
         """
             # TODO: use MPI gather for roots and extra infos
             serizlized_root=pickle.dumps(root)

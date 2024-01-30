@@ -13,6 +13,7 @@ def main():
     ap.add_argument(
         "--game_name", choices=["tictactoe", "ultimate_tictactoe"], required=True
     )
+    # ap.add_argument("--num_trees", type=int, default=1)
     args = ap.parse_args()
 
     game_name = args.game_name
@@ -24,12 +25,14 @@ def main():
         print("TRAINING MODEL")
         muzero.train()
     elif mode == "test":
-        print("PLAYING AGAINST MODEL")
+        if muzero.config.num_trees == 1:
+            print("PLAYING AGAINST MODEL")
+        else:
+            print("PLAYING AGAINST MULTITHREADED MODEL")
         muzero.test(render=True, opponent="human", muzero_player=0)
     else:
         print("Invalid mode. Use '--mode train' or '--mode test'.")
 
 
 if __name__ == "__main__":
-    print("MAIN!!!!")
     main()
