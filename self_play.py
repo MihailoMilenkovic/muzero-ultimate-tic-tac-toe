@@ -169,7 +169,8 @@ class SelfPlay:
                     )
 
                     if render:
-                        print(f'Tree depth: {mcts_info["max_tree_depth"]}')
+                        if mcts_info is not None:
+                            print(f'Tree depth: {mcts_info["max_tree_depth"]}')
                         print(
                             f"Root value for player {self.game.to_play()}: {root.value():.2f}"
                         )
@@ -495,15 +496,14 @@ def merge_mcts_trees(root_nodes: List[Node]):
     """
     assert len(root_nodes) >= 1
     new_node = Node(prior=root_nodes[0].prior)
-    assert all(x.prior == new_node.prior for x in root_nodes)
     new_node.visit_count = sum(x.visit_count for x in root_nodes)
     new_node.to_play = root_nodes[0].to_play
     assert all(x.to_play == new_node.to_play for x in root_nodes)
     new_node.value_sum = sum(x.value_sum for x in root_nodes)
-    new_node_actions = {a for x in root_nodes for a in x.children.keys}
+    new_node_actions = {a for x in root_nodes for a in x.children.keys()}
     for a in new_node_actions:
         new_node.children[a] = merge_mcts_trees(
-            [x.children[a] for x in root_nodes if a in x.children.keys]
+            [x.children[a] for x in root_nodes if a in x.children.keys()]
         )
     new_node.value_sum = sum(x.value_sum for x in root_nodes)
     new_node.hidden_state = None
@@ -560,9 +560,11 @@ class TreeParallelMCTS(MCTS):
 
         output_data = result.stdout
         # Deserialize the output from the subprocess
-        print("Output from subprocess:", output_data)
-        visit_counts = pickle.loads(output_data)
-        return visit_counts
+        output_data_file = "/tmp/output.pkl"
+        with open(output_data_file, "rb") as file:
+            combined_tree = pickle.load(file)
+
+        return combined_tree, None
 
 
 class GameHistory:
