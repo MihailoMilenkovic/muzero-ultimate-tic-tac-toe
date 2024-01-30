@@ -15,7 +15,6 @@ def worker_process():
         # read input from cli as pickle data
         input_data_bytes = sys.stdin
         input_data = pickle.loads(input_data_bytes)
-
     comm.bcast(input_data, root=0)
     config = input_data["config"]
     observation = input_data["observation"]

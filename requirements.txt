@@ -5,3 +5,4 @@ ray
 seaborn
 tensorboard
 torch
+mpi4py
