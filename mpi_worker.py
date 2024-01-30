@@ -1,24 +1,51 @@
-from self_play import MCTS
-from mpi4py import MPI
+import sys
 import pickle
+from mpi4py import MPI
+from self_play import MCTS
+
+# Initialize MPI
+comm = MPI.COMM_WORLD
+rank = comm.Get_rank()
+size = comm.Get_size()
 
 
 def worker_process():
-    comm = MPI.Comm.Get_parent()
+    input_data = None
+    if rank == 0:
+        # read input from cli as pickle data
+        input_data_bytes = sys.stdin
+        input_data = pickle.loads(input_data_bytes)
 
-    # Receive data from root process
-    args_bytes = comm.bcast(None, root=0)
-    root_bytes = comm.bcast(None, root=0)
-    args = pickle.loads(args_bytes)
-    root = pickle.loads(root_bytes)
-    assert isinstance(root, MCTS)
-    # Perform computation (run MCTS or other operations)
-    root, extra_info = root.run(*args)
-    # Send the root back to the root process
-    root = pickle.dumps(root)
-    extra_info = pickle.dumps(extra_info)
-    comm.gather(root, root=0)
-    comm.gather(extra_info, root=0)
+    comm.bcast(input_data, root=0)
+    config = input_data["config"]
+    observation = input_data["observation"]
+    to_play = input_data["to_play"]
+    legal_actions = input_data["legal_actions"]
+    # create MCTS nodes from this data
+    node = MCTS(config)
+    res1, res2 = node.run(
+        model=None,
+        observation=observation,
+        to_play=to_play,
+        legal_actions=legal_actions,
+    )
+    visit_counts = res1
+    all_visit_counts = []
+    # gather visit counts in root
+    all_visit_counts = comm.gather(visit_counts, root=0)
+    if rank == 0:
+        merged_visit_counts = {}
+        # merge visit counts for each move
+        for visit_count in all_visit_counts:
+            for move, count in visit_count.items():
+                if move in visit_count:
+                    merged_visit_counts[move] += count
+                else:
+                    merged_visit_counts[move] = count
+
+        # Send the root back to the root process
+        visit_counts_pkl = pickle.dumps(merged_visit_counts)
+        print(visit_counts_pkl)
 
 
 if __name__ == "__main__":

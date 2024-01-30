@@ -5,7 +5,7 @@ def main():
     # Initialize MPI
     comm = MPI.COMM_WORLD.Spawn(
         sys.executable,  # Path to Python interpreter
-        args=['worker.py'],  # Arguments to the spawned script
+        args=['print_worker.py'],  # Arguments to the spawned script
         maxprocs=4  # Number of processes to spawn
     )
     

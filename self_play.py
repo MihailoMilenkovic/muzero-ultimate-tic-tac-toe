@@ -528,65 +528,39 @@ class TreeParallelMCTS(MCTS):
         add_exploration_noise,
         override_root_with=None,
     ):
-        roots = []
-        extra_infos = []
-        from mpi4py import MPI
+        import subprocess
+        import pickle
+        import sys
 
-        comm = MPI.COMM_WORLD
-        size = comm.Get_size()
-        assert size == 1
-
-        intercomm = MPI.COMM_SELF.Spawn(
-            command="python", args=["mpi_worker.py"], maxprocs=self.config.num_trees
-        )
-        args = [
-            model,
-            observation,
-            legal_actions,
-            to_play,
-            add_exploration_noise,
-            override_root_with,
-        ]
-        root = MCTS(self.config)
-        # each node receives the broadcasted value
-        intercomm.broadcast(args, root=MPI.ROOT)
-        # each node receives the broadcasted value
-        intercomm.broadcast(root, root=MPI.ROOT)
-        # each node does root.run(*args)
-        # root, extra_info = root.run(
-        #     model,
-        #     observation,
-        #     legal_actions,
-        #     to_play,
-        #     add_exploration_noise,
-        #     override_root_with,
-        # )
-        #
-        roots = [None for _ in range(self.num_trees)]
-        extra_infos = [None for _ in range(self.num_trees)]
-        # each node sends the root after calculations
-        intercomm.gather(roots, root=MPI.ROOT)
-        intercomm.gather(extra_infos, root=MPI.ROOT)
-        """
-            # TODO: use MPI gather for roots and extra infos
-            serizlized_root=pickle.dumps(root)
-            sizes=comm.gather(sys.getsizeof(serialized_root),root=0)
-            roots=comm.gatherv(serialized_root,sizes,root=0)
-            roots=[pickle.loads(r) for r in roots]
-            serizlized_infos=pickle.dumps(root)
-            sizes=comm.gather(sys.getsizeof(serizlized_infos),root=0)
-            extra_infos=comm.gatherv(serizlized_infos,sizes,root=0)
-            extra_infos=[pickle.loads(i) for i in extra_infos]
-        if comm.Get_rank==0: 
-        """
-        root = merge_mcts_trees(roots)
-        extra_info = {
-            "max_tree_depth": max(info["max_tree_depth"] for info in extra_infos),
-            # TODO: check if the predicted value actually matters...
-            # currently just storing the first one
-            "root_predicted_value": extra_infos[0]["root_predicted_value"],
+        input_data = {
+            "config": self.config,
+            "observation": observation,
+            "to_play": to_play,
+            "legal_actions": legal_actions,
         }
-        return root, extra_info
+        serialized_data = pickle.dumps(input_data)
+        result = subprocess.run(
+            [
+                "mpirun",
+                "-n",
+                f"{self.config.num_trees}",
+                sys.executable,
+                "mpi_worker.py",
+            ],
+            input=serialized_data,
+            capture_output=True,
+        )
+
+        # Check if the command was successful
+        if result.returncode != 0:
+            print("Error:", result.stderr)
+            exit(1)
+
+        output_data = result.stdout
+        # Deserialize the output from the subprocess
+        print("Output from subprocess:", output_data)
+        visit_counts = pickle.loads(output_data)
+        return visit_counts
 
 
 class GameHistory:
