@@ -3,18 +3,24 @@ import pickle
 from mpi4py import MPI
 from self_play import MCTS
 
-# Initialize MPI
-comm = MPI.COMM_WORLD
-rank = comm.Get_rank()
-size = comm.Get_size()
 
+if __name__ == "__main__":
+    # Initialize MPI
+    comm = MPI.COMM_WORLD
+    rank = comm.Get_rank()
+    size = comm.Get_size()
 
-def worker_process():
+    print("CURR RANK:", rank)
+    MPI.Finalize()
+    exit()
     input_data = None
     if rank == 0:
         # read input from cli as pickle data
-        input_data_bytes = sys.stdin
-        input_data = pickle.loads(input_data_bytes)
+        input_data_file = sys.argv[1]
+        with open(input_data_file, "rb") as file:
+            input_data = pickle.load(file)
+        print("input data:", input_data)
+
     comm.bcast(input_data, root=0)
     config = input_data["config"]
     observation = input_data["observation"]
@@ -45,7 +51,3 @@ def worker_process():
         # Send the root back to the root process
         visit_counts_pkl = pickle.dumps(merged_visit_counts)
         print(visit_counts_pkl)
-
-
-if __name__ == "__main__":
-    worker_process()

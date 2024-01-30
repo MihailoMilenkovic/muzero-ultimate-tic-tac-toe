@@ -538,7 +538,9 @@ class TreeParallelMCTS(MCTS):
             "to_play": to_play,
             "legal_actions": legal_actions,
         }
-        serialized_data = pickle.dumps(input_data)
+        pickle_data_file = "/tmp/input.pkl"
+        with open(pickle_data_file, "wb") as file:
+            pickle.dump(input_data, file)
         result = subprocess.run(
             [
                 "mpirun",
@@ -546,8 +548,8 @@ class TreeParallelMCTS(MCTS):
                 f"{self.config.num_trees}",
                 sys.executable,
                 "mpi_worker.py",
+                pickle_data_file,
             ],
-            input=serialized_data,
             capture_output=True,
         )
 
