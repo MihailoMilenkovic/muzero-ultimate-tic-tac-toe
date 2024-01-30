@@ -493,23 +493,32 @@ def merge_mcts_trees(root_nodes: List[Node]):
     """
     Combine two MCTS trees to obtain joint tree
     Used for tree parallelism approach after finishing exploring independent MCTS trees with same root states
+    We only sum the values of node visit counts to select new actions
     """
     assert len(root_nodes) >= 1
+
     new_node = Node(prior=root_nodes[0].prior)
     new_node.visit_count = sum(x.visit_count for x in root_nodes)
-    new_node.to_play = root_nodes[0].to_play
-    assert all(x.to_play == new_node.to_play for x in root_nodes)
-    new_node.value_sum = sum(x.value_sum for x in root_nodes)
     new_node_actions = {a for x in root_nodes for a in x.children.keys()}
     for a in new_node_actions:
-        new_node.children[a] = merge_mcts_trees(
-            [x.children[a] for x in root_nodes if a in x.children.keys()]
+        new_node.children[a] = Node(prior=None)
+        for i, r in enumerate(root_nodes):
+            if r.children[a] != None:
+                # print(
+                #     "ROOT NUMBER:",
+                #     i,
+                #     "ACTION NUMBER:",
+                #     a,
+                #     "VISIT COUNT:",
+                #     r.children[a].visit_count,
+                # )
+                new_node.children[a].visit_count += r.children[a].visit_count
+        print(
+            "MERGED NODE - ACTION NUMBER:",
+            a,
+            "VISIT COUNT:",
+            new_node.children[a].visit_count,
         )
-    new_node.value_sum = sum(x.value_sum for x in root_nodes)
-    new_node.hidden_state = None
-    # TODO: check if this is how the reward should be calculated
-    # average reward seems to make sense, but maybe there's a better way to calculate it?
-    new_node.reward = 1.0 * sum(x.reward for x in root_nodes) / len(root_nodes)
     return new_node
 
 

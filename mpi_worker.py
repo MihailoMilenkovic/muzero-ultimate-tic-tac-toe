@@ -37,15 +37,11 @@ if __name__ == "__main__":
     # merge_mcts_info = comm.gather(mcts_info, root=0)
     if rank == 0:
         print("ROOTS:", root_nodes)
-        print("ROOTS[0] prior", root_nodes[0].prior)
-        print("ROOTS[1] prior", root_nodes[1].prior)
         # print("MERGE INFOS:", merge_mcts_info)
-        # new_root = merge_mcts_trees(root_nodes)
-        new_root = root_nodes[0]
-        output_data = new_root
-        # print("NEW ROOT:", new_root)
+        merged_root = merge_mcts_trees(root_nodes)
+        # for a in merged_root.children.keys():
+        #     print("ACTION:", a, "VISITS:", merged_root.children[a].visit_count)
         pickle_data_file = "/tmp/output.pkl"
         with open(pickle_data_file, "wb") as file:
-            pickle.dump(output_data, file)
-
+            pickle.dump(merged_root, file)
     MPI.Finalize()
