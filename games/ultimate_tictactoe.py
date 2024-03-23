@@ -30,7 +30,7 @@ class MuZeroConfig:
         self.num_workers = 3  # Number of simultaneous threads/workers self-playing to feed the replay buffer
         self.selfplay_on_gpu = False
         self.max_moves = 81  # Maximum number of moves if game is not finished before
-        self.num_simulations = 5  # Number of future moves self-simulated
+        self.num_simulations = 100  # Number of future moves self-simulated
         self.discount = 1  # Chronological discount of the reward
         self.temperature_threshold = None  # Number of moves before dropping the temperature given by visit_softmax_temperature_fn to 0 (ie selecting the best action). If None, visit_softmax_temperature_fn is used every time
 
@@ -72,8 +72,9 @@ class MuZeroConfig:
         ### Training
         self.results_path = pathlib.Path(__file__).resolve().parents[1] / "results" / pathlib.Path(__file__).stem / datetime.datetime.now().strftime("%Y-%m-%d--%H-%M-%S")  # Path to store the model weights and TensorBoard logs
         self.save_model = True  # Save the checkpoint in results_path as model.checkpoint
-        self.training_steps = 1000000  # Total number of training steps (ie weights update according to a batch)
-        self.batch_size = 64  # Number of parts of games to train on at each training step
+        self.training_steps = 10000  # Total number of training steps (ie weights update according to a batch)
+        #NOTE: this much can fit on 1 A100 GPU
+        self.batch_size = 211  # Number of parts of games to train on at each training step
         self.checkpoint_interval = 10  # Number of training steps before using the model for self-playing
         self.value_loss_weight = 0.25  # Scale the value loss to avoid overfitting of the value function, paper recommends 0.25 (See paper appendix Reanalyze)
         self.train_on_gpu = torch.cuda.is_available()  # Train on GPU if available
@@ -267,9 +268,9 @@ class UltimateTicTacToe:
             self.big_board[big_row, big_col] = -10  # NOTE: random unique number
         done = self.have_winner() or len(self.legal_actions()) == 0
 
-        # TODO: experiment with small rewards for winning on small boards
-        # reward = 1000.0 if self.have_winner() else 1.0 if small_win else 0.0
-        reward = 1 if self.have_winner() else 0
+        # NOTE: small reward for winning on small boards, large one for the entire game
+        reward = 1.0 if self.have_winner() else 0.05 if small_win else 0.0
+        # reward = 1 if self.have_winner() else 0
 
         self.player *= -1
 
