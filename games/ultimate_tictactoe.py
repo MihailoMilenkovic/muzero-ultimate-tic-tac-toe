@@ -27,7 +27,7 @@ class MuZeroConfig:
 
 
         ### Self-Play
-        self.num_workers = 1  # Number of simultaneous threads/workers self-playing to feed the replay buffer
+        self.num_workers = 3  # Number of simultaneous threads/workers self-playing to feed the replay buffer
         self.selfplay_on_gpu = False
         self.max_moves = 81  # Maximum number of moves if game is not finished before
         self.num_simulations = 5  # Number of future moves self-simulated
@@ -176,7 +176,7 @@ class Game(AbstractGame):
         Display the game observation.
         """
         self.env.render()
-        input("Press enter to take a step ")
+        # input("Press enter to take a step ")
 
     def human_to_action(self):
         """
@@ -282,30 +282,42 @@ class UltimateTicTacToe:
         board_to_play = np.full((9, 9), self.player)
         return np.array([board_player1, board_player2, board_to_play], dtype="int32")
 
+    def coords_to_action(self, coords: Tuple[int, int, int, int]):
+        assert len(coords) == 4
+        assert all([0 <= x <= 2 for x in coords])
+        return coords[0] * 27 + coords[1] * 9 + coords[2] * 3 + coords[3]
+
+    def action_to_coords(self, action: int):
+        assert 0 <= action <= 81
+        return action // 27, (action // 9) % 3, (action // 3) % 3, action % 3
+
+    def is_legal_action(self, action: int):
+        coords = self.action_to_coords(action)
+        return self.are_legal_coords(coords)
+
+    def are_legal_coords(self, coords: Tuple[int, int, int, int]):
+        big_row, big_col, small_row, small_col = coords
+        if self.big_board[big_row, big_col] != 0:
+            return False
+        # NOTE: if the last move won on a small board, all open moves are legal
+        if self.last_big is not None and self.big_board[
+            self.last_big[0], self.last_big[1]
+        ] in [-1, 1]:
+            return self.small_boards[big_row, big_col, small_row, small_col] == 0
+
+        # NOTE: the previous small coordinates determine the valid big coordinates for the next move
+        if (
+            self.last_small is not None
+            and self.big_board[self.last_small] == 0
+            and (big_row, big_col) != self.last_small
+        ):
+            return False
+        assert self.big_board[big_row, big_col] == 0
+        # if we are in the legal large board, we can play on empty squares
+        return self.small_boards[big_row, big_col, small_row, small_col] == 0
+
     def legal_actions(self):
-        legal = []
-        for action in range(81):
-            big_row = action // 27  # % 3 not needed
-            big_col = (action // 9) % 3
-            if self.big_board[big_row, big_col] != 0:
-                # can't continue a big game that's finished
-                continue
-            """
-            NOTE: the previous small coordinates determine
-            the valid big coordinates for the next move
-            if the big game there is finished, we can choose any square 
-            """
-            if (
-                self.last_small != None
-                and self.big_board[self.last_small] == 0
-                and (big_row, big_col) != self.last_small
-            ):
-                continue
-            assert self.big_board[big_row, big_col] == 0
-            small_row = (action // 3) % 3
-            small_col = action % 3
-            if self.small_boards[big_row, big_col, small_row, small_col] == 0:
-                legal.append(action)
+        legal = [action for action in range(81) if self.is_legal_action(action)]
         return legal
 
     def _regular_tictactoe_has_winner(self, board: np.ndarray):
@@ -353,18 +365,28 @@ class UltimateTicTacToe:
 
     def _display_element(self, element: int, coords: Tuple[int, int, int, int]):
         el_to_char = {1: "X", -1: "O", 0: "."}
-        i, j, k, l = coords
-        if self.big_board[i, j] != 0:
+        i, j, _, _ = coords
+        if self.big_board[i, j] not in [0, -10]:
             assert self.big_board[i, j] in [-1, 1]
             return el_to_char[self.big_board[i, j]]
 
-        if (i, j) == self.last_small and self.small_boards[i, j, k, l] == 0:
+        if self.are_legal_coords(coords):
             return "!"
         assert element in el_to_char
         return el_to_char[element]
 
     def render(self):
         # display current board
+        colors = {
+            "red": "\033[91m",
+            "green": "\033[92m",
+            "yellow": "\033[93m",
+            "white": "\033[97m",
+            "cyan": "\033[96m",
+            "orange": "\033[33m",
+            "pink": "\033[95m",
+        }
+        reset = "\033[0m"
 
         for i in range(3):
             for _ in range(3):
@@ -378,6 +400,25 @@ class UltimateTicTacToe:
                         displayed = self._display_element(
                             self.small_boards[i, k, j, l], (i, k, j, l)
                         )
+                        if (
+                            self.last_big is not None
+                            and self.last_small is not None
+                            and i == self.last_big[0]
+                            and k == self.last_big[1]
+                            and j == self.last_small[0]
+                            and l == self.last_small[1]
+                        ):
+                            # NOTE: unique color for last move played
+                            displayed = f"{colors['green']}{displayed}{reset}"
+                        elif displayed == "!":
+                            displayed = f"{colors['red']}{displayed}{reset}"
+                        elif displayed == "X":
+                            displayed = f"{colors['orange']}{displayed}{reset}"
+                        elif displayed == "O":
+                            displayed = f"{colors['cyan']}{displayed}{reset}"
+                        else:
+                            displayed = f"{colors['white']}{displayed}{reset}"
+
                         print(
                             f" {displayed} ",
                             end="|",
