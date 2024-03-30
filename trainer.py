@@ -169,6 +169,14 @@ class Trainer:
         value, reward, policy_logits, hidden_state = self.model.initial_inference(
             observation_batch
         )
+        # print("OBSERVATION BATCH:", observation_batch)
+        # print("TARGET POLICY:", target_policy)
+        # print("TARGET VALUE:", target_value)
+        # print("TARGET REWARD:", target_policy)
+        # print("PREDICTED POLICY:", policy_logits)
+        # print("PREDICTED VALUE:", value)
+        # print("PREDICTED REWARD:", reward)
+
         predictions = [(value, reward, policy_logits)]
         for i in range(1, action_batch.shape[1]):
             value, reward, policy_logits, hidden_state = self.model.recurrent_inference(

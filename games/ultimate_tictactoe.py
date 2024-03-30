@@ -18,7 +18,8 @@ class MuZeroConfig:
         self.observation_shape = (4, 9, 9)  # Dimensions of the game observation, must be 3D (channel, height, width). For a 1D array, please reshape it to (1, 1, length of array)
         self.action_space = list(range(81))  # Fixed list of all possible actions. You should only edit the length
         self.players = list(range(2))  # List of players. You should only edit the length
-        self.stacked_observations = 1  # Number of previous observations and previous actions to add to the current observation
+        #NOTE: using multiple observations is buggy (can't run diagnostics, and possibly messes up training)
+        self.stacked_observations = 0  # Number of previous observations and previous actions to add to the current observation
 
         # Evaluate
         self.muzero_player = 0  # Turn Muzero begins to play (0: MuZero plays first, 1: MuZero plays second)
@@ -30,7 +31,7 @@ class MuZeroConfig:
         self.num_workers = 3  # Number of simultaneous threads/workers self-playing to feed the replay buffer
         self.selfplay_on_gpu = False
         self.max_moves = 81  # Maximum number of moves if game is not finished before
-        self.num_simulations = 100  # Number of future moves self-simulated
+        self.num_simulations = 1000  # Number of future moves self-simulated
         self.discount = 1  # Chronological discount of the reward
         self.temperature_threshold = None  # Number of moves before dropping the temperature given by visit_softmax_temperature_fn to 0 (ie selecting the best action). If None, visit_softmax_temperature_fn is used every time
 
@@ -49,28 +50,28 @@ class MuZeroConfig:
         # Residual Network
         self.downsample = False  # Downsample observations before representation network, False / "CNN" (lighter) / "resnet" (See paper appendix Network Architecture)
         self.blocks = 4  # Number of blocks in the ResNet
-        self.channels = 128  # Number of channels in the ResNet
-        self.reduced_channels_reward = 2  # Number of channels in reward head
-        self.reduced_channels_value = 2  # Number of channels in value head
-        self.reduced_channels_policy = 4 # Number of channels in policy head
+        self.channels = 64  # Number of channels in the ResNet
+        self.reduced_channels_reward = 64  # Number of channels in reward head
+        self.reduced_channels_value = 64 # Number of channels in value head
+        self.reduced_channels_policy = 64 # Number of channels in policy head
         self.resnet_fc_reward_layers = [64]  # Define the hidden layers in the reward head of the dynamic network
         self.resnet_fc_value_layers = [64]  # Define the hidden layers in the value head of the prediction network
         self.resnet_fc_policy_layers = [64]  # Define the hidden layers in the policy head of the prediction network
 
-        # # Fully Connected Network
-        # self.encoding_size = 32
-        # self.fc_representation_layers = []  # Define the hidden layers in the representation network
-        # self.fc_dynamics_layers = [64]  # Define the hidden layers in the dynamics network
-        # self.fc_reward_layers = [64]  # Define the hidden layers in the reward network
-        # self.fc_value_layers = []  # Define the hidden layers in the value network
-        # self.fc_policy_layers = []  # Define the hidden layers in the policy network
+        # Fully Connected Network
+        self.encoding_size = 32
+        self.fc_representation_layers = []  # Define the hidden layers in the representation network
+        self.fc_dynamics_layers = [64]  # Define the hidden layers in the dynamics network
+        self.fc_reward_layers = [64]  # Define the hidden layers in the reward network
+        self.fc_value_layers = []  # Define the hidden layers in the value network
+        self.fc_policy_layers = []  # Define the hidden layers in the policy network
 
 
 
         ### Training
         self.results_path = pathlib.Path(__file__).resolve().parents[1] / "results" / pathlib.Path(__file__).stem / datetime.datetime.now().strftime("%Y-%m-%d--%H-%M-%S")  # Path to store the model weights and TensorBoard logs
         self.save_model = True  # Save the checkpoint in results_path as model.checkpoint
-        self.training_steps = 25000  # Total number of training steps (ie weights update according to a batch)
+        self.training_steps = 2500  # Total number of training steps (ie weights update according to a batch)
         #NOTE: this much can fit on 1 A100 GPU
         self.batch_size = 300  # Number of parts of games to train on at each training step
         self.checkpoint_interval = 10  # Number of training steps before using the model for self-playing
@@ -84,7 +85,7 @@ class MuZeroConfig:
         # Exponential learning rate schedule
         self.lr_init = 0.003  # Initial learning rate
         self.lr_decay_rate = 0.9  # Set it to 1 to use a constant learning rate
-        self.lr_decay_steps = 2500
+        self.lr_decay_steps = 1000
 
 
 
