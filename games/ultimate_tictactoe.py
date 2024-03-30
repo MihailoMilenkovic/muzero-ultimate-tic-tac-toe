@@ -15,7 +15,7 @@ class MuZeroConfig:
         self.max_num_gpus = None  # Fix the maximum number of GPUs to use. It's usually faster to use a single GPU (set it to 1) if it has enough memory. None will use every GPUs available
 
         ### Game
-        self.observation_shape = (3, 9, 9)  # Dimensions of the game observation, must be 3D (channel, height, width). For a 1D array, please reshape it to (1, 1, length of array)
+        self.observation_shape = (4, 9, 9)  # Dimensions of the game observation, must be 3D (channel, height, width). For a 1D array, please reshape it to (1, 1, length of array)
         self.action_space = list(range(81))  # Fixed list of all possible actions. You should only edit the length
         self.players = list(range(2))  # List of players. You should only edit the length
         self.stacked_observations = 1  # Number of previous observations and previous actions to add to the current observation
@@ -276,10 +276,28 @@ class UltimateTicTacToe:
         return self.get_observation(), reward, done
 
     def get_observation(self):
-        board_player1 = np.where(self.small_boards == 1, 1, 0).reshape((9, 9))
-        board_player2 = np.where(self.small_boards == -1, 1, 0).reshape((9, 9))
-        board_to_play = np.full((9, 9), self.player)
-        return np.array([board_player1, board_player2, board_to_play], dtype="int32")
+        # NOTE: reshaping board to be the same as observed by humans
+        # this should help convolutions learn local features
+        legal_moves = np.zeros_like(self.small_boards, dtype="int32")
+        for coords, _ in np.ndenumerate(self.small_boards):
+            if self.are_legal_coords(coords):
+                legal_moves[coords] = 1
+        legal_moves = legal_moves.transpose(0, 2, 1, 3).reshape((9, 9))
+        player1_spots = (
+            np.where(self.small_boards == 1, 1, 0).transpose(0, 2, 1, 3).reshape((9, 9))
+        )
+        player2_spots = (
+            np.where(self.small_boards == -1, 1, 0)
+            .transpose(0, 2, 1, 3)
+            .reshape((9, 9))
+        )
+        board_to_play = np.full((9, 9), self.player, dtype="int32")
+        res = np.array([legal_moves, player1_spots, player2_spots, board_to_play])
+        return res
+        # board_player1 = np.where(self.small_boards == 1, 1, 0).reshape((9, 9))
+        # board_player2 = np.where(self.small_boards == -1, 1, 0).reshape((9, 9))
+        # board_to_play = np.full((9, 9), self.player)
+        # return np.array([board_player1, board_player2, board_to_play], dtype="int32")
 
     def coords_to_action(self, coords: Tuple[int, int, int, int]):
         assert len(coords) == 4
@@ -386,7 +404,6 @@ class UltimateTicTacToe:
             "pink": "\033[95m",
         }
         reset = "\033[0m"
-
         for i in range(3):
             for _ in range(3):
                 print("+---" * 3 + "+", end=" ")
