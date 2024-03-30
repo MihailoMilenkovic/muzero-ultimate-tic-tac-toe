@@ -18,7 +18,7 @@ class MuZeroConfig:
         self.observation_shape = (3, 9, 9)  # Dimensions of the game observation, must be 3D (channel, height, width). For a 1D array, please reshape it to (1, 1, length of array)
         self.action_space = list(range(81))  # Fixed list of all possible actions. You should only edit the length
         self.players = list(range(2))  # List of players. You should only edit the length
-        self.stacked_observations = 0  # Number of previous observations and previous actions to add to the current observation
+        self.stacked_observations = 1  # Number of previous observations and previous actions to add to the current observation
 
         # Evaluate
         self.muzero_player = 0  # Turn Muzero begins to play (0: MuZero plays first, 1: MuZero plays second)
@@ -42,15 +42,13 @@ class MuZeroConfig:
         self.pb_c_base = 19652
         self.pb_c_init = 1.25
 
-        #TODO: check if this makes sense (just copied from gomoku for now)
-
         ### Network
         self.network = "resnet"  # "resnet" / "fullyconnected"
         self.support_size = 10  # Value and reward are scaled (with almost sqrt) and encoded on a vector with a range of -support_size to support_size. Choose it so that support_size <= sqrt(max(abs(discounted reward)))
 
         # Residual Network
         self.downsample = False  # Downsample observations before representation network, False / "CNN" (lighter) / "resnet" (See paper appendix Network Architecture)
-        self.blocks = 6  # Number of blocks in the ResNet
+        self.blocks = 4  # Number of blocks in the ResNet
         self.channels = 128  # Number of channels in the ResNet
         self.reduced_channels_reward = 2  # Number of channels in reward head
         self.reduced_channels_value = 2  # Number of channels in value head
@@ -60,21 +58,21 @@ class MuZeroConfig:
         self.resnet_fc_policy_layers = [64]  # Define the hidden layers in the policy head of the prediction network
 
         # # Fully Connected Network
-        self.encoding_size = 32
-        self.fc_representation_layers = []  # Define the hidden layers in the representation network
-        self.fc_dynamics_layers = [64]  # Define the hidden layers in the dynamics network
-        self.fc_reward_layers = [64]  # Define the hidden layers in the reward network
-        self.fc_value_layers = []  # Define the hidden layers in the value network
-        self.fc_policy_layers = []  # Define the hidden layers in the policy network
+        # self.encoding_size = 32
+        # self.fc_representation_layers = []  # Define the hidden layers in the representation network
+        # self.fc_dynamics_layers = [64]  # Define the hidden layers in the dynamics network
+        # self.fc_reward_layers = [64]  # Define the hidden layers in the reward network
+        # self.fc_value_layers = []  # Define the hidden layers in the value network
+        # self.fc_policy_layers = []  # Define the hidden layers in the policy network
 
 
 
         ### Training
         self.results_path = pathlib.Path(__file__).resolve().parents[1] / "results" / pathlib.Path(__file__).stem / datetime.datetime.now().strftime("%Y-%m-%d--%H-%M-%S")  # Path to store the model weights and TensorBoard logs
         self.save_model = True  # Save the checkpoint in results_path as model.checkpoint
-        self.training_steps = 10000  # Total number of training steps (ie weights update according to a batch)
+        self.training_steps = 25000  # Total number of training steps (ie weights update according to a batch)
         #NOTE: this much can fit on 1 A100 GPU
-        self.batch_size = 211  # Number of parts of games to train on at each training step
+        self.batch_size = 300  # Number of parts of games to train on at each training step
         self.checkpoint_interval = 10  # Number of training steps before using the model for self-playing
         self.value_loss_weight = 0.25  # Scale the value loss to avoid overfitting of the value function, paper recommends 0.25 (See paper appendix Reanalyze)
         self.train_on_gpu = torch.cuda.is_available()  # Train on GPU if available
@@ -86,7 +84,7 @@ class MuZeroConfig:
         # Exponential learning rate schedule
         self.lr_init = 0.003  # Initial learning rate
         self.lr_decay_rate = 0.9  # Set it to 1 to use a constant learning rate
-        self.lr_decay_steps = 10000
+        self.lr_decay_steps = 2500
 
 
 
@@ -117,7 +115,8 @@ class MuZeroConfig:
         Returns:
             Positive float.
         """
-        return 1
+        return 1 - (1.0 * trained_steps / self.training_steps)
+        # return 1
 
 
 class Game(AbstractGame):
@@ -277,7 +276,6 @@ class UltimateTicTacToe:
         return self.get_observation(), reward, done
 
     def get_observation(self):
-        # TODO: check if reshaping should be done differently
         board_player1 = np.where(self.small_boards == 1, 1, 0).reshape((9, 9))
         board_player2 = np.where(self.small_boards == -1, 1, 0).reshape((9, 9))
         board_to_play = np.full((9, 9), self.player)
