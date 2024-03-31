@@ -44,7 +44,8 @@ class MuZeroConfig:
         self.pb_c_init = 1.25
 
         ### Network
-        self.network = "resnet"  # "resnet" / "fullyconnected"
+        # self.network = "resnet"  # "resnet" / "fullyconnected"
+        self.network = "fullyconnected" 
         self.support_size = 10  # Value and reward are scaled (with almost sqrt) and encoded on a vector with a range of -support_size to support_size. Choose it so that support_size <= sqrt(max(abs(discounted reward)))
 
         # Residual Network
@@ -59,12 +60,12 @@ class MuZeroConfig:
         self.resnet_fc_policy_layers = [64]  # Define the hidden layers in the policy head of the prediction network
 
         # Fully Connected Network
-        self.encoding_size = 32
-        self.fc_representation_layers = []  # Define the hidden layers in the representation network
-        self.fc_dynamics_layers = [64]  # Define the hidden layers in the dynamics network
-        self.fc_reward_layers = [64]  # Define the hidden layers in the reward network
-        self.fc_value_layers = []  # Define the hidden layers in the value network
-        self.fc_policy_layers = []  # Define the hidden layers in the policy network
+        self.encoding_size = 81
+        self.fc_representation_layers = [81,81]  # Define the hidden layers in the representation network
+        self.fc_dynamics_layers = [81,81]  # Define the hidden layers in the dynamics network
+        self.fc_reward_layers = [81]  # Define the hidden layers in the reward network
+        self.fc_value_layers = [81]  # Define the hidden layers in the value network
+        self.fc_policy_layers = [81]  # Define the hidden layers in the policy network
 
 
 
